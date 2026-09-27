@@ -163,6 +163,7 @@ export function Layout() {
   const [palette, setPalette] = useState(false);
   const location = useLocation();
   const { workspace } = useSession();
+  const live = useWsQuery<{ database_persistent: boolean }>(["health-live"], "/api/health/live", { staleTime: 300_000 });
   useEffect(() => setDrawer(false), [location.pathname]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -181,6 +182,12 @@ export function Layout() {
       <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} aria-hidden="true" />
       <div className="main">
         <Topbar onMenu={() => setDrawer(true)} onSearch={() => setPalette(true)} />
+        {live.data && !live.data.database_persistent && (
+          <div className="notice warn" role="alert" style={{ borderRadius: 0, borderLeft: 0, borderRight: 0, borderTop: 0 }}>
+            <strong>Temporary storage:</strong> no PostgreSQL database is connected to this deployment, so accounts and data are kept in a
+            temporary file and can reset when the server restarts.
+          </div>
+        )}
         {workspace?.mode === "DEMO" && (
           <div className="notice info" style={{ borderRadius: 0, borderLeft: 0, borderRight: 0, borderTop: 0, display: "flex", gap: 8, alignItems: "center" }}>
             <Shield size={15} aria-hidden="true" /> <span><strong>DEMO MODE</strong> — Nova Bank (fictional). Every event, indicator and incident here is synthetic and generated for demonstration; detections were produced by the live engine.</span>

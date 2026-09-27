@@ -8,8 +8,8 @@ from app.core.config import get_settings
 from app.database.session import Base
 
 config = context.config
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and "connection" not in config.attributes:
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
@@ -22,6 +22,13 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    external = config.attributes.get("connection")
+    if external is not None:
+        context.configure(connection=external, target_metadata=target_metadata,
+                          render_as_batch=external.dialect.name == "sqlite")
+        with context.begin_transaction():
+            context.run_migrations()
+        return
     connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.",
                                      poolclass=pool.NullPool)
     with connectable.connect() as connection:

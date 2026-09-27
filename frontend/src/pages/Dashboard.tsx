@@ -53,7 +53,7 @@ function SimulationCard() {
   const { isAnalyst, isAdmin } = useSession();
   const qc = useQueryClient();
   const toast = useToast();
-  const sim = useWsQuery<{ available: boolean; running: boolean; ticks: number; events_generated: number; last_tick: string | null; tick_seconds: number; last_error: string | null }>(
+  const sim = useWsQuery<{ available: boolean; continuous_supported: boolean; running: boolean; ticks: number; events_generated: number; last_tick: string | null; tick_seconds: number; last_error: string | null }>(
     ["simulation"], "/api/simulation", { refetchInterval: 5000 });
   const act = useMutation({
     mutationFn: (action: string) => api(`/api/simulation/${action}`, { method: "POST" }),
@@ -63,16 +63,19 @@ function SimulationCard() {
   if (!sim.data?.available) return null;
   const s = sim.data;
   return (
-    <Card title="Live simulation" sub={`Streams synthetic events every ${s.tick_seconds}s through the real pipeline`}
+    <Card title="Live simulation"
+      sub={s.continuous_supported ? `Streams synthetic events every ${s.tick_seconds}s through the real pipeline`
+        : "Serverless deployment: generate synthetic event batches on demand (continuous streaming needs a long-running server)"}
       actions={isAnalyst && (
         <>
-          {s.running ? <button className="btn btn-sm" onClick={() => act.mutate("pause")}><Pause /> Pause</button>
+          {!s.continuous_supported ? <button className="btn btn-sm" onClick={() => act.mutate("tick")} disabled={act.isPending}><Play /> {act.isPending ? "Generating…" : "Generate batch"}</button>
+            : s.running ? <button className="btn btn-sm" onClick={() => act.mutate("pause")}><Pause /> Pause</button>
             : <button className="btn btn-sm" onClick={() => act.mutate("start")}><Play /> Start</button>}
           {isAdmin && <button className="btn btn-sm" onClick={() => confirm("Reset demo data and regenerate the baseline dataset?") && act.mutate("reset")}><RotateCcw /> Reset</button>}
         </>
       )}>
       <div className="row small">
-        <span className={`badge ${s.running ? "st-ok" : ""}`}>{s.running ? "RUNNING" : "PAUSED"}</span>
+        {s.continuous_supported && <span className={`badge ${s.running ? "st-ok" : ""}`}>{s.running ? "RUNNING" : "PAUSED"}</span>}
         <span className="muted">{s.ticks} ticks · {fmtNum(s.events_generated)} events generated · last tick {fmtRelative(s.last_tick)}</span>
         {s.last_error && <span className="badge st-bad">Error: {s.last_error}</span>}
       </div>

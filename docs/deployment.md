@@ -31,6 +31,22 @@ Put a TLS-terminating proxy (Caddy, Traefik, a cloud load balancer) in front of 
 
 Pull the new version and `docker compose up -d --build`. Migrations run automatically at backend start. `alembic downgrade -1` is available inside the backend container.
 
+## Vercel (frontend + API in one project)
+
+The repository is Vercel-ready: `vercel.json` builds the SPA into `frontend/dist` and serves the FastAPI app as a Python function (`api/index.py`) under `/api/*` on the same origin.
+
+- Serverless mode is detected from `VERCEL=1`: uploads are processed inside the request (no background tasks), the continuous simulation is replaced by an on-demand "Generate batch" action, and migrations run at cold start (`AUTO_MIGRATE`, guarded by a PostgreSQL advisory lock).
+- **A PostgreSQL database is required** for correct behavior. Vercel runs several function instances in parallel; without `DATABASE_URL` each instance falls back to its own temporary SQLite file in `/tmp`, so users and data are not shared between requests. The UI shows a "Temporary storage" warning and System Health reports `EPHEMERAL` in that state.
+- Connect Neon (Vercel Marketplace → Neon → connect to the project) or set `DATABASE_URL`/`POSTGRES_URL` manually, then redeploy.
+- Set `SECRET_KEY`, `ENVIRONMENT=production`, `COOKIE_SECURE=true`, and optional `LLM_*` in Project → Settings → Environment Variables.
+
+```bash
+npm i -g vercel
+vercel link
+vercel install neon          # accept the Neon marketplace terms when prompted
+vercel deploy --prod
+```
+
 ## Managed platforms
 
 The same two images work on any container platform (Render, Railway, Fly.io, Azure Container Apps, AWS ECS/App Runner, Google Cloud Run) with a managed PostgreSQL:
@@ -52,4 +68,4 @@ Then in the browser: register → Open Nova Bank demo → open an incident → a
 
 ## Status of this repository
 
-The project was built and tested locally (backend on SQLite and on a real PostgreSQL 16 server, frontend production build, Playwright E2E). The Docker images and Compose file were written for this layout but could not be built in the development environment because Docker was not installed there; CI builds and tests everything except the images. No public deployment exists.
+The project was built and tested locally (backend on SQLite and on a real PostgreSQL 16 server, frontend production build, Playwright E2E). The Docker images and Compose file were written for this layout but could not be built in the development environment because Docker was not installed there; CI builds and tests everything except the images. A Vercel deployment exists (see README for the URL).

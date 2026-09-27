@@ -135,7 +135,11 @@ def upload(request: Request, background: BackgroundTasks, file: UploadFile = Fil
     db.commit()
     record(db, "UPLOAD_DATA", user=ctx.user, workspace_id=ctx.workspace_id, target_type="ingestion_job",
            target_id=job.id, details={"filename": filename, "bytes": len(content)}, request=request)
-    background.add_task(process_ingestion_job, job.id, filename, content)
+    if get_settings().serverless:
+        process_ingestion_job(job.id, filename, content)
+        db.refresh(job)
+    else:
+        background.add_task(process_ingestion_job, job.id, filename, content)
     return job_payload(job)
 
 

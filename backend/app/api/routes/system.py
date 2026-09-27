@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api", tags=["health & system"])
 @router.get("/health/live")
 def live():
     """Liveness probe (no auth, no dependencies)."""
-    return {"status": "ok", "version": __version__}
+    return {"status": "ok", "version": __version__, "database_persistent": not get_settings().database_is_ephemeral}
 
 
 @router.get("/health/ready")
@@ -46,6 +46,10 @@ def health(ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
         dialect = dbs.engine.dialect.name
         if dialect == "postgresql":
             comps.append(_component("Database", "CONNECTED", f"PostgreSQL reachable ({latency} ms)", dialect=dialect))
+        elif settings.database_is_ephemeral:
+            comps.append(_component("Database", "DEGRADED", "EPHEMERAL SQLite in /tmp on a serverless function: data "
+                                    "resets when the instance restarts. PostgreSQL: NOT CONFIGURED (set DATABASE_URL).",
+                                    dialect=dialect))
         else:
             comps.append(_component("Database", "DEGRADED", f"SQLite fallback in use ({latency} ms). PostgreSQL: NOT "
                                     "CONFIGURED. Suitable for local development only.", dialect=dialect))

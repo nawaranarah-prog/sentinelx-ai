@@ -34,6 +34,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 async def lifespan(_: FastAPI):
     from app.services.workspace import bootstrap_reference_data
 
+    if get_settings().auto_migrate:
+        from app.database.migrate import upgrade_to_head
+
+        upgrade_to_head()
     db = dbs.SessionLocal()
     try:
         bootstrap_reference_data(db)

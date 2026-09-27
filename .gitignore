@@ -36,3 +36,8 @@ tests/e2e/screenshots/
 Thumbs.db
 .vscode/
 .idea/
+
+# Vercel CLI link data and pulled environment files
+.vercel
+.env*
+!.env.example

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import AdminCtx, AnalystCtx, ReadCtx, WorkspaceContext, get_current_user
 from app.api.serializers import iso, user_brief
 from app.audit.service import record
+from app.core.config import get_settings
 from app.core.security import hash_password, password_problems
 from app.database.session import get_db
 from app.models import Detection, Event, Incident, Membership, Role, User, Workspace
@@ -182,12 +183,27 @@ def _demo_only(ctx: WorkspaceContext) -> None:
 
 @sim_router.get("")
 def sim_status(ctx: WorkspaceContext = ReadCtx):
-    return {"available": ctx.workspace.mode == MODE_DEMO, **get_sim(ctx.workspace_id).status()}
+    return {"available": ctx.workspace.mode == MODE_DEMO, "continuous_supported": not get_settings().serverless,
+            **get_sim(ctx.workspace_id).status()}
+
+
+@sim_router.post("/tick")
+def sim_tick(request: Request, ctx: WorkspaceContext = AnalystCtx, db: Session = Depends(get_db)):
+    """Generate one batch of synthetic events now (works on serverless deployments too)."""
+    _demo_only(ctx)
+    sim = get_sim(ctx.workspace_id)
+    added = sim.tick()
+    record(db, "START_SIMULATION", user=ctx.user, workspace_id=ctx.workspace_id, target_type="simulation",
+           target_id=ctx.workspace_id, details={"mode": "single_batch", "events": added}, request=request)
+    return {**sim.status(), "events_added": added}
 
 
 @sim_router.post("/start")
 def sim_start(request: Request, ctx: WorkspaceContext = AnalystCtx, db: Session = Depends(get_db)):
     _demo_only(ctx)
+    if get_settings().serverless:
+        raise HTTPException(status_code=400, detail="Continuous simulation needs a long-running server and is not "
+                                                    "available on this serverless deployment. Use 'Generate batch'.")
     sim = get_sim(ctx.workspace_id)
     sim.start()
     record(db, "START_SIMULATION", user=ctx.user, workspace_id=ctx.workspace_id, target_type="simulation",
