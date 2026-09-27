@@ -4,6 +4,7 @@ import { noHorizontalOverflow, register, trackConsole, unexpected } from "./help
 const WIDTHS = [375, 390, 768, 1024, 1280, 1440, 1920];
 
 test("no horizontal overflow and usable navigation at every target width", async ({ page }) => {
+  test.setTimeout(600_000); // 70 page loads; remote deployments need more than the default budget
   const errors = trackConsole(page);
   await register(page, "responsive");
   await page.getByRole("button", { name: "Open Nova Bank demo" }).click();

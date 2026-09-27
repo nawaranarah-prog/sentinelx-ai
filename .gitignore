@@ -41,3 +41,8 @@ Thumbs.db
 .vercel
 .env*
 !.env.example
+
+# Local agent tooling (not part of the app)
+.agents/
+.claude/
+skills-lock.json

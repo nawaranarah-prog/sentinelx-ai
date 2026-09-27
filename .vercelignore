@@ -10,3 +10,6 @@ datasets
 docs
 .github
 .env
+.agents
+.claude
+skills-lock.json
