@@ -1,0 +1,38 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# E2E artifacts
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+tests/e2e/screenshots/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
