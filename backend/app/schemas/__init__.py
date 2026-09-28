@@ -119,7 +119,7 @@ class ChatIn(BaseModel):
 
 
 class ReportIn(BaseModel):
-    incident_id: int
+    incident_id: int | str  # numeric id or incident number (INC-0006)
     report_type: Literal["incident", "technical", "executive"] = "incident"
     include_ai_summary: bool = True
 

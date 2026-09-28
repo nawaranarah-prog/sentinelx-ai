@@ -168,3 +168,10 @@ def test_entity_analytics(demo):
     assert demo.get("/api/entities/planet/x/baseline").status_code == 404
     pipe = demo.get("/api/system/pipeline").json()
     assert "stages" in pipe
+
+
+def test_report_accepts_incident_number(demo):
+    inc = _flagship(demo)
+    r = demo.post("/api/reports", json={"incident_id": inc["number"], "report_type": "executive"})
+    assert r.status_code == 201, r.text
+    assert r.json()["content"]["incident"]["number"] == inc["number"]
