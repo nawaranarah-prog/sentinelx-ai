@@ -126,8 +126,8 @@ export function Dashboard() {
               <thead><tr><th>Incident</th><th>Severity</th><th>Risk</th><th>Status</th><th>Entities</th><th>Last seen (UTC)</th></tr></thead>
               <tbody>
                 {s.recent_incidents.map((i: IncidentBrief) => (
-                  <tr key={i.id} className="clickable" onClick={() => navigate(`/incidents/${i.id}`)}>
-                    <td data-label="Incident"><Link to={`/incidents/${i.id}`} onClick={(e) => e.stopPropagation()}><strong>{i.number}</strong></Link> <span className="text-2">{i.title}</span></td>
+                  <tr key={i.id} className="clickable" onClick={() => navigate(`/incidents/${i.number}`)}>
+                    <td data-label="Incident"><Link to={`/incidents/${i.number}`} onClick={(e) => e.stopPropagation()}><strong>{i.number}</strong></Link> <span className="text-2">{i.title}</span></td>
                     <td data-label="Severity"><SeverityBadge severity={i.severity} /></td>
                     <td data-label="Risk"><RiskMeter score={i.risk_score} band={i.risk_band} /></td>
                     <td data-label="Status"><StatusBadge status={i.status} /></td>

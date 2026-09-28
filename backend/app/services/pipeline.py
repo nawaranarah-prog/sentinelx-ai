@@ -11,6 +11,7 @@ from time import perf_counter
 from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
+from app.analysis import knowledge_graph
 from app.core.config import get_settings
 from app.correlation.engine import correlate
 from app.database import session as dbs
@@ -118,16 +119,33 @@ def run_pipeline(db: Session, workspace: Workspace, job: IngestionJob | None = N
             job.stage = name
             db.commit()
 
+    timings: dict[str, int] = {}
+    mark = perf_counter()
+
+    def lap(name: str) -> None:
+        nonlocal mark
+        now = perf_counter()
+        timings[name] = int((now - mark) * 1000)
+        mark = now
+
     update_inventory(db, workspace.id)
+    lap("enrich_inventory")
     stage("DETECTING")
     events = load_events(db, workspace.id)
     det = run_detection(db, workspace, events)
+    lap("detect")
     stage("ANOMALY_ANALYSIS")
     bh = (workspace.settings or {}).get("business_hours") or [7, 20]
     anomaly = run_anomaly_detection(db, workspace.id, events, (int(bh[0]), int(bh[1])),
                                     (workspace.settings or {}).get("anomaly_if_threshold"))
+    lap("analyze")
     stage("CORRELATING")
     corr = correlate(db, workspace)
+    lap("correlate")
+    graph = knowledge_graph.rebuild(db, workspace.id, events)
+    lap("graph")
+    if job is not None:
+        job.stage_timings = timings
     for d in det.new_detections:
         if d.severity == "critical":
             notify_workspace(db, workspace.id, "critical_detection", f"Critical detection: {d.title}",
@@ -138,7 +156,8 @@ def run_pipeline(db: Session, workspace: Workspace, job: IngestionJob | None = N
         "anomaly_windows": anomaly.windows, "anomalies_flagged": anomaly.flagged,
         "isolation_forest_used": anomaly.if_used, "anomaly_notes": anomaly.notes,
         "incidents_created": len(corr.new_incidents), "incidents_updated": len(corr.updated_incidents),
-        "standalone_detections": corr.standalone_detections,
+        "standalone_detections": corr.standalone_detections, "graph_nodes": graph["nodes"],
+        "graph_edges": graph["edges"], "stage_ms": timings,
         "duration_ms": int((perf_counter() - t0) * 1000), "finished_at": utcnow().isoformat(),
     }
     workspace.last_pipeline_run_at = utcnow()

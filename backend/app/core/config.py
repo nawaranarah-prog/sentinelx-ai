@@ -24,12 +24,12 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    llm_provider: Literal["none", "anthropic", "openai"] = "none"
+    llm_provider: Literal["auto", "none", "gateway", "anthropic", "openai"] = "auto"
     llm_api_key: str = ""
     llm_model: str = ""
     llm_base_url: str = ""
-    llm_timeout_seconds: float = 60.0
-    llm_max_tool_rounds: int = 4
+    llm_timeout_seconds: float = 90.0
+    llm_max_tool_rounds: int = 10
     llm_refusal_fallback: bool = True
 
     max_upload_mb: int = 25
@@ -71,15 +71,6 @@ class Settings(BaseSettings):
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
 
-    @property
-    def llm_configured(self) -> bool:
-        return self.llm_provider != "none" and bool(self.llm_api_key)
-
-    @property
-    def effective_llm_model(self) -> str:
-        if self.llm_model:
-            return self.llm_model
-        return {"anthropic": "claude-opus-5", "openai": "gpt-4o-mini"}.get(self.llm_provider, "")
 
 
 @lru_cache

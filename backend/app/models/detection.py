@@ -20,6 +20,7 @@ class DetectionRule(Base):
     parameters: Mapped[dict] = mapped_column(JSONType, default=dict)
     mitre_techniques: Mapped[list] = mapped_column(JSONType, default=list)
     stage: Mapped[str] = mapped_column(String(48), default="")
+    kind: Mapped[str] = mapped_column(String(16), default="builtin")
     version: Mapped[int] = mapped_column(Integer, default=1)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

@@ -25,6 +25,7 @@ class IngestionJob(Base):
     errors: Mapped[list] = mapped_column(JSONType, default=list)
     warnings: Mapped[list] = mapped_column(JSONType, default=list)
     field_mapping: Mapped[dict] = mapped_column(JSONType, default=dict)
+    stage_timings: Mapped[dict] = mapped_column(JSONType, default=dict)
     detections_created: Mapped[int] = mapped_column(Integer, default=0)
     incidents_created: Mapped[int] = mapped_column(Integer, default=0)
     incidents_updated: Mapped[int] = mapped_column(Integer, default=0)

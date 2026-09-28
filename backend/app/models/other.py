@@ -66,6 +66,10 @@ class AIConversation(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     incident_id: Mapped[int | None] = mapped_column(ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
+    mode: Mapped[str] = mapped_column(String(16), default="ask")
+    state: Mapped[dict] = mapped_column(JSONType, default=dict)
+    investigation_id: Mapped[int | None] = mapped_column(ForeignKey("investigations.id", ondelete="SET NULL"),
+                                                         nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -84,6 +88,8 @@ class AIMessage(Base):
     sources: Mapped[list] = mapped_column(JSONType, default=list)
     tool_calls: Mapped[list] = mapped_column(JSONType, default=list)
     validation: Mapped[dict] = mapped_column(JSONType, default=dict)
+    artifacts: Mapped[list] = mapped_column(JSONType, default=list)
+    error_ref: Mapped[str] = mapped_column(String(40), default="")
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

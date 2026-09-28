@@ -37,7 +37,7 @@ export function AdminKnowledgePage() {
   };
   return (
     <div className="stack">
-      <div className="page-head"><div><h1>Knowledge base (RAG)</h1><p>UPLOAD → EXTRACT → CHUNK → EMBED → STORE → RETRIEVE. Retrieved passages are given to the AI assistant as untrusted context and cited as sources.</p></div>
+      <div className="page-head"><div><h1>Knowledge base (RAG)</h1><p>UPLOAD → EXTRACT → CHUNK → EMBED → STORE → RETRIEVE. Retrieved passages are given to the copilot as untrusted context and cited as sources.</p></div>
         <div className="page-actions"><label className="btn btn-primary" style={{ cursor: "pointer" }}><Upload /> {busy ? "Indexing…" : "Upload document"}<input type="file" hidden accept=".md,.markdown,.txt,.pdf" onChange={(e) => upload(e.target.files?.[0])} disabled={busy} /></label></div></div>
       {docs.data && <div className="notice small">Embedding: {docs.data.embedding}. {docs.data.vector_store}</div>}
       <div className="grid grid-main-side">

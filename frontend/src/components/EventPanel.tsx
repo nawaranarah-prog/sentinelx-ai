@@ -37,7 +37,7 @@ export function EventPanel({ eventId, onClose }: { eventId: number; onClose: () 
                     <ul>{e.detections.map((d: any) => <li key={d.id}><Link to={`/detections/${d.id}`}>{d.rule_key} · {d.title}</Link></li>)}</ul>}</div>
                 <div><h3 className="mb-8">Incidents</h3>
                   {e.incidents.length === 0 ? <p className="muted">Not part of any incident.</p> :
-                    <ul>{e.incidents.map((i: any) => <li key={i.id}><Link to={`/incidents/${i.id}`}>{i.number}</Link> <StatusBadge status={i.status} /> <span className="muted small">({i.role})</span></li>)}</ul>}</div>
+                    <ul>{e.incidents.map((i: any) => <li key={i.id}><Link to={`/incidents/${i.number}`}>{i.number}</Link> <StatusBadge status={i.status} /> <span className="muted small">({i.role})</span></li>)}</ul>}</div>
               </div>
             )}
           </div>

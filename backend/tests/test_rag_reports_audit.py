@@ -48,7 +48,8 @@ def test_reports_all_types_and_formats(demo):
         rep = r.json()
         c = rep["content"]
         assert c["incident"]["number"] == inc["number"] and c["risk"]["factors"] and c["techniques"]
-        assert c["ai_summary"]["mode"] == "LOCAL" and c["synthetic_data"] is True
+        assert c["ai_summary"] is None and c["synthetic_data"] is True  # no model connected: no AI section
+        assert c["analysis_method"] and c["uncertainty"]
         if rtype == "executive":
             assert c["timeline"] == []
         else:

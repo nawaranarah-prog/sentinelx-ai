@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.ai.agent import narrative_for_report
 from app.api.deps import AnalystCtx, ReadCtx, WorkspaceContext
 from app.api.routes.incidents import get_incident_or_404
 from app.api.serializers import iso
@@ -31,17 +32,20 @@ def report_payload(r: Report, author: str | None = None, full: bool = False) -> 
 def create_report(body: ReportIn, request: Request, ctx: WorkspaceContext = AnalystCtx, db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, body.incident_id)
     try:
-        content = build_report(db, ctx, inc, body.report_type, body.include_ai_summary)
+        narrative = (narrative_for_report(db, ctx.workspace, ctx.user.id, inc, body.report_type)
+                     if body.include_ai_summary else None)
+        content = build_report(db, ctx.workspace, ctx.user.id, inc, body.report_type, narrative)
     except Exception:
         log.exception("Report generation failed for incident %s", inc.id)
         raise HTTPException(status_code=500, detail="Report generation failed. The error was logged.") from None
-    ai_mode = (content.get("ai_summary") or {}).get("mode", "NONE")
+    ai_mode = "LIVE" if narrative else "NONE"
     rep = Report(workspace_id=ctx.workspace_id, incident_id=inc.id, report_type=body.report_type,
                  title=content["title"], content=content, ai_mode=ai_mode, created_by_id=ctx.user.id)
     db.add(rep)
     db.flush()
     notify_workspace(db, ctx.workspace_id, "report_ready", f"Report ready: {rep.title}",
-                     f"AI summary mode: {ai_mode}.", f"/reports/{rep.id}", only_user_id=ctx.user.id)
+                     "Includes a model-written narrative." if narrative else "Generated from incident data.",
+                     f"/reports/{rep.id}", only_user_id=ctx.user.id)
     db.commit()
     record(db, "GENERATE_REPORT", user=ctx.user, workspace_id=ctx.workspace_id, target_type="report",
            target_id=rep.id, details={"incident": inc.number, "type": body.report_type, "ai_mode": ai_mode},

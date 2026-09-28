@@ -21,8 +21,11 @@ from app.models import (
     Detection,
     Event,
     Host,
+    Hunt,
     Incident,
+    Investigation,
     Notification,
+    Report,
     SavedSearch,
     ThreatIndicator,
 )
@@ -130,7 +133,7 @@ def global_search(q: str = Query(min_length=1, max_length=200), ctx: WorkspaceCo
     for i in db.query(Incident).filter(Incident.workspace_id == ws, or_(Incident.title.ilike(like),
                                                                         Incident.number.ilike(like))).limit(8):
         results.append({"type": "incident", "id": i.id, "title": f"{i.number} · {i.title}", "subtitle": i.status,
-                        "severity": i.severity, "link": f"/incidents/{i.id}"})
+                        "severity": i.severity, "link": f"/incidents/{i.number}"})
     for d in db.query(Detection).filter(Detection.workspace_id == ws, or_(Detection.title.ilike(like),
                                                                           Detection.rule_key.ilike(like))).limit(8):
         results.append({"type": "detection", "id": d.id, "title": d.title, "subtitle": d.rule_key,
@@ -156,7 +159,18 @@ def global_search(q: str = Query(min_length=1, max_length=200), ctx: WorkspaceCo
             Event.command.ilike(like), Event.resource.ilike(like))).order_by(Event.timestamp.desc()).limit(8)):
         results.append({"type": "event", "id": e.id, "title": f"{e.event_uid} · {e.event_type}",
                         "subtitle": " ".join(x for x in [e.user or "", e.host or "", (e.command or e.resource or "")[:60]] if x),
-                        "severity": e.severity, "link": f"/events?event={e.id}"})
+                        "severity": e.severity, "link": f"/events/{e.event_uid}"})
+    for inv in db.query(Investigation).filter(Investigation.workspace_id == ws, or_(
+            Investigation.title.ilike(like), Investigation.number.ilike(like))).limit(6):
+        results.append({"type": "investigation", "id": inv.id, "title": f"{inv.number} · {inv.title}",
+                        "subtitle": inv.status, "link": f"/investigations/{inv.number}"})
+    for h in db.query(Hunt).filter(Hunt.workspace_id == ws, or_(Hunt.name.ilike(like), Hunt.number.ilike(like),
+                                                                Hunt.natural_language.ilike(like))).limit(6):
+        results.append({"type": "hunt", "id": h.id, "title": f"{h.number} · {h.name}",
+                        "subtitle": f"{h.last_result_count} matches", "link": f"/hunts/{h.number}"})
+    for r in db.query(Report).filter(Report.workspace_id == ws, Report.title.ilike(like)).limit(6):
+        results.append({"type": "report", "id": r.id, "title": r.title, "subtitle": r.report_type,
+                        "link": f"/reports/{r.id}"})
     return {"query": q, "results": results}
 
 

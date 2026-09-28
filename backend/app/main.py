@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
 from app import __version__
+from app.ai.providers import request_oidc_token
 from app.api.routes import (
     ai,
     auth,
@@ -18,6 +19,7 @@ from app.api.routes import (
     ingestion,
     insights,
     intel,
+    platform,
     reports,
     system,
     workspaces,
@@ -68,7 +70,15 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         request.state.request_id = uuid.uuid4().hex[:12]
-        response = await call_next(request)
+        # On Vercel the platform injects a short-lived OIDC token per request; it authenticates the AI Gateway.
+        # It stays server-side (never returned to the browser).
+        oidc = request.headers.get("x-vercel-oidc-token") if settings.serverless else None
+        token = request_oidc_token.set(oidc) if oidc else None
+        try:
+            response = await call_next(request)
+        finally:
+            if token is not None:
+                request_oidc_token.reset(token)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
@@ -105,7 +115,7 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=500, content={"detail": "Internal server error",
                                                       "request_id": getattr(request.state, "request_id", None)})
 
-    for module in (auth, workspaces, events, ingestion, detections, incidents, intel, ai, reports, insights, system):
+    for module in (auth, workspaces, events, ingestion, detections, incidents, intel, ai, reports, insights, system, platform):
         for name in dir(module):
             obj = getattr(module, name)
             if name.endswith("router") and hasattr(obj, "routes"):

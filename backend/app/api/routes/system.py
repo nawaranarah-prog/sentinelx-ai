@@ -59,7 +59,7 @@ def health(ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
     stats = ws.last_pipeline_stats or {}
     rules = db.query(DetectionRule).filter_by(workspace_id=ws.id).all()
     enabled = [r for r in rules if r.enabled]
-    missing = [r.rule_key for r in rules if r.rule_key not in RULE_IMPLEMENTATIONS]
+    missing = [r.rule_key for r in rules if r.kind == "builtin" and r.rule_key not in RULE_IMPLEMENTATIONS]
     if missing:
         comps.append(_component("Detection Engine", "ERROR", f"Rules without implementation: {', '.join(missing)}"))
     elif stats.get("rule_errors"):
@@ -95,10 +95,14 @@ def health(ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
 
 @router.get("/system/config")
 def config(ctx: WorkspaceContext = AdminCtx):
+    from app.ai.providers import resolve_config
+
     s = get_settings()
+    cfg = resolve_config(s)
     return {
         "environment": s.environment, "version": __version__, "database_dialect": dbs.engine.dialect.name,
-        "llm_provider": s.llm_provider, "llm_model": s.effective_llm_model or None, "llm_configured": s.llm_configured,
+        "llm_provider": s.llm_provider, "llm_resolved_provider": cfg.name if cfg else None,
+        "llm_model": cfg.model if cfg else None, "llm_configured": cfg is not None,
         "llm_api_key": "configured (hidden)" if s.llm_api_key else "not set", "llm_timeout_seconds": s.llm_timeout_seconds,
         "llm_max_tool_rounds": s.llm_max_tool_rounds, "cors_origins": s.cors_origin_list,
         "max_upload_mb": s.max_upload_mb, "max_upload_rows": s.max_upload_rows,

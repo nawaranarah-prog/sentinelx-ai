@@ -14,6 +14,14 @@ SYNTHETIC_NOTE = ("This report was generated from SYNTHETIC demo data (fictional
                   "It does not describe real events.")
 
 
+_TOKEN = re.compile(r"\[(?:INC|EVT|USER|HOST|IP|DET|RULE|TECH|IOC|INV|HUNT|DOMAIN|PROC):([^\]]+)\]")
+
+
+def _strip_tokens(text: str) -> str:
+    """Citation tokens become plain identifiers in exported documents."""
+    return _TOKEN.sub(lambda m: m.group(1), text or "")
+
+
 def _ts(v: str | None) -> str:
     return (v or "").replace("T", " ").replace("Z", " UTC")[:23]
 
@@ -33,8 +41,7 @@ def to_markdown(c: dict, generated_at: str) -> str:
     out += ["", "## Summary", "", c["summary"], "", f"**Why these events were correlated:** {c['correlation_reason']}", ""]
     if c.get("ai_summary"):
         a = c["ai_summary"]
-        label = f"LIVE AI ({a['provider']} · {a['model']})" if a["mode"] == "LIVE" else "DEMO AI / LOCAL ANALYSIS (no language model)"
-        out += [f"## AI summary — {label}", ""] + [f"> {n}" for n in a.get("notices", [])] + ["", a["markdown"], ""]
+        out += [f"## Analyst narrative (written by {a['model']})", "", _strip_tokens(a["markdown"]), ""]
     imp = c["impact"]
     out += ["## Impact", ""]
     out.append(f"- External data transfer: {imp['external_bytes_human'] or 'none detected'}")
@@ -73,7 +80,28 @@ def to_markdown(c: dict, generated_at: str) -> str:
             detail = (e["detail"] or "").replace("|", "\\|")[:120]
             out.append(f"| {_ts(e['timestamp'])} | {e['event_uid']} | {e['event_type']}/{e['action'] or ''} "
                        f"{e['status'] or ''} | {e['user'] or ''} | {e['host'] or ''} | {detail} |")
+    if c.get("attack_dna"):
+        traits = ", ".join(k.replace("_", " ") + f": {v}" for k, v in (c["attack_dna"].get("traits") or {}).items())
+        out += ["", "## Attack DNA", "", f"Stage signature `{c['attack_dna'].get('signature')}` — {traits}"]
+    f = c.get("findings") or {}
+    if any(f.get(k) for k in ("fact", "hypothesis", "conclusion", "question")):
+        out += ["", "## Investigation findings", "", "_Recorded by analysts and the copilot during investigation._"]
+        for kind, label in (("fact", "Facts"), ("hypothesis", "Hypotheses"), ("conclusion", "Conclusions"),
+                            ("question", "Open questions")):
+            if f.get(kind):
+                out += ["", f"**{label}**", ""]
+                for m in f[kind]:
+                    ev = (f" — supporting: {', '.join(m['supporting'])}" if m.get("supporting") else "") + \
+                         (f" — contradicting: {', '.join(m['contradicting'])}" if m.get("contradicting") else "")
+                    status = f" ({m['status']})" if kind in ("hypothesis", "question") else ""
+                    out.append(f"- {m['text']}{status}{ev}")
+    if c.get("uncertainty"):
+        out += ["", "## Uncertainty and limitations", ""] + [f"- {u}" for u in c["uncertainty"]]
     out += ["", "## Recommendations", ""] + [f"{n}. {x}" for n, x in enumerate(c["recommendations"], 1)]
+    if c.get("analysis_method"):
+        out += ["", "## Analysis method", ""] + [f"- {m}" for m in c["analysis_method"]]
+    if c.get("audit_history"):
+        out += ["", "## Audit history", ""] + [f"- {_ts(a['at'])}: {a['action']} by {a['user']}" for a in c["audit_history"]]
     if c.get("notes"):
         out += ["", "## Analyst notes", ""] + [f"- {n['created_at']} {n['author']} ({n['kind']}): {n['body']}" for n in c["notes"]]
     if c.get("status_history"):
@@ -185,9 +213,8 @@ def to_pdf(c: dict, generated_at: str) -> bytes:
               Paragraph(f"<b>Correlation:</b> {esc(c['correlation_reason'])}", body)]
     if c.get("ai_summary"):
         a = c["ai_summary"]
-        label = f"LIVE AI ({a['provider']} / {a['model']})" if a["mode"] == "LIVE" else "DEMO AI / LOCAL ANALYSIS (no language model)"
-        story.append(Paragraph(f"AI summary — {esc(label)}", h2))
-        for line in a["markdown"].split("\n"):
+        story.append(Paragraph(f"Analyst narrative (written by {esc(a['model'])})", h2))
+        for line in _strip_tokens(a["markdown"]).split("\n"):
             if line.strip():
                 text = esc(line.strip().lstrip("- ").replace("**", ""))
                 story.append(Paragraph(("• " if line.strip().startswith("- ") else "") + text, body))
@@ -212,9 +239,25 @@ def to_pdf(c: dict, generated_at: str) -> bytes:
                         f"{esc(', '.join(h['hostname'] + ' (' + h['criticality'] + ')' for h in aa['hosts']) or '—')}<br/>"
                         f"<b>Source IPs:</b> {esc(', '.join(aa['source_ips']) or '—')}<br/><b>External destinations:</b> "
                         f"{esc(', '.join(aa['destination_ips']) or '—')}", body)]
+    f = c.get("findings") or {}
+    if any(f.get(k) for k in ("fact", "hypothesis", "conclusion", "question")):
+        story.append(Paragraph("Investigation findings", h2))
+        for kind, label in (("fact", "Fact"), ("hypothesis", "Hypothesis"), ("conclusion", "Conclusion"), ("question", "Open question")):
+            for m in f.get(kind, []):
+                extra = (f" — supporting: {', '.join(m['supporting'])}" if m.get("supporting") else "") + \
+                        (f" — contradicting: {', '.join(m['contradicting'])}" if m.get("contradicting") else "")
+                story.append(Paragraph(f"<b>{label}:</b> {esc(m['text'])}{esc(extra)}", body))
+    if c.get("uncertainty"):
+        story.append(Paragraph("Uncertainty and limitations", h2))
+        for u in c["uncertainty"]:
+            story.append(Paragraph(f"• {esc(u)}", body))
     story.append(Paragraph("Recommendations", h2))
     for n, rec in enumerate(c["recommendations"], 1):
         story.append(Paragraph(f"{n}. {esc(rec)}", body))
+    if c.get("analysis_method"):
+        story.append(Paragraph("Analysis method", h2))
+        for m in c["analysis_method"]:
+            story.append(Paragraph(f"• {esc(m)}", small))
     if c["timeline"]:
         story += [PageBreak(), Paragraph("Timeline (evidence events)", h2)]
         tl = [[Paragraph(h, small) for h in ("Time (UTC)", "Event", "Type/Action", "User / Host", "Detail")]]

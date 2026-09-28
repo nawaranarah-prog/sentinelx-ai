@@ -1,6 +1,7 @@
 import { useSearchParams, Link } from "react-router-dom";
 import { useWsQuery } from "../lib/hooks";
 import type { IncidentBrief, DetectionBrief } from "../lib/types";
+import { InvestigateButton } from "../components/InvestigateButton";
 import { Card, ErrorState, Loading, SeverityBadge, SidePanel } from "../components/ui";
 
 interface Tech { id: string; name: string; tactic: string; description: string; detection_guidance: string; url: string; incident_count: number; detection_count: number }
@@ -14,9 +15,10 @@ function TechniquePanel({ id, onClose }: { id: string; onClose: () => void }) {
           <div><h2>{q.data.name}</h2><div className="muted">{q.data.tactic}</div></div>
           <p>{q.data.description}</p>
           <p className="small"><strong>Detection guidance:</strong> {q.data.detection_guidance}</p>
-          <a href={q.data.url} target="_blank" rel="noreferrer noopener">View on attack.mitre.org</a>
+          <div className="row"><a href={q.data.url} target="_blank" rel="noreferrer noopener">View on attack.mitre.org</a>
+            <InvestigateButton small context={[`TECH:${id}`]} mode="explain" label="Explain in this environment" q={`What does ${id} mean in this environment? Where was it observed and do we detect it well?`} /></div>
           <h3>Observed in incidents ({q.data.incidents.length})</h3>
-          {q.data.incidents.map((i) => (<div key={i.id} className="notice small"><Link to={`/incidents/${i.id}`}><strong>{i.number}</strong> {i.title}</Link><div className="mt-8">{i.reason}</div>
+          {q.data.incidents.map((i) => (<div key={i.id} className="notice small"><Link to={`/incidents/${i.number}`}><strong>{i.number}</strong> {i.title}</Link><div className="mt-8">{i.reason}</div>
             <div className="mono muted">{i.event_uids.slice(0, 5).join(", ")}</div></div>))}
           <h3>Detections ({q.data.detections.length})</h3>
           {q.data.detections.slice(0, 20).map((d) => <div key={d.id} className="small"><Link to={`/detections/${d.id}`}>{d.title}</Link> <SeverityBadge severity={d.severity} /></div>)}

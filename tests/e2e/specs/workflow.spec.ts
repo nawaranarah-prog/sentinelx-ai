@@ -50,15 +50,15 @@ test("analyst workflow: register, upload, detect, investigate, AI, report, audit
   await page.getByLabel("Status").selectOption("IN_PROGRESS");
   await expect(page.getByText("Status updated")).toBeVisible();
 
-  // AI investigation grounded in the incident.
-  await page.getByRole("tab", { name: "AI Investigation" }).click();
-  await page.getByRole("button", { name: "What happened?" }).click();
-  await expect(page.getByText("DEMO AI / LOCAL ANALYSIS").first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("EVIDENCE", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Grounding check/)).toBeVisible();
-  await page.getByLabel("Ask the assistant").fill("What should I investigate next?");
+  // Copilot investigation grounded in the incident (no model configured: labeled rule-based analysis).
+  await page.getByRole("tab", { name: "Copilot" }).click();
+  await page.getByLabel("Question").fill("What happened in this incident and which hosts are affected?");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByText("RECOMMENDED NEXT STEPS").last()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Rule-based analysis").first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/No language model is connected/).first()).toBeVisible();
+  await page.getByRole("button", { name: /Investigation activity/ }).first().click();
+  await expect(page.locator(".activity li").first()).toBeVisible();
+  await expect(page.locator(".md a.cite").first()).toBeVisible();
   await page.screenshot({ path: "screenshots/incident-ai.png", fullPage: true });
 
   // Report generation and export.

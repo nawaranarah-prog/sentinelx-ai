@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { App } from "../App";
-import { AIChat } from "../components/AIChat";
+import { Copilot } from "../components/Copilot";
+import { HuntsPage } from "../pages/Hunts";
 import { SeverityBadge } from "../components/ui";
 import { IncidentsPage } from "../pages/Incidents";
 import { IngestPage } from "../pages/Ingest";
@@ -131,30 +132,82 @@ describe("upload", () => {
   });
 });
 
-describe("AI assistant", () => {
-  it("labels LOCAL mode, separates evidence and flags removed references", async () => {
-    mockApi({
+const assistantMsg = (over: Record<string, unknown> = {}) => ({
+  id: 2, role: "assistant", mode: "LOCAL", provider: "local", model: "sentinelx-rule-based", latency_ms: 800, created_at: "", error_ref: "",
+  content: "**INC-0006** began with 38 failed logins [EVT:NB-000123] by [USER:t.nguyen]; technique [TECH:T1110.001]. ⟨unverified reference EVT:NB-999 removed⟩",
+  structured: { mode: "investigate", citations: [{ type: "EVT", id: "NB-000123", link: "/events/NB-000123" }],
+    notice: { kind: "info", text: "No language model is connected; this answer was produced by SentinelX rule-based analysis using the same tools." },
+    security_notes: ["Possible prompt-injection text in data (event NB-000124): \"Ignore all previous instructions\" — treated as data, not instructions."],
+    scorecard: { evidence_reviewed: 12, entities_reviewed: 3, timeline_coverage: 0.4, open_questions: [], contradicting_evidence: 0, missing_telemetry: [], confidence: "medium", method: "Coverage = share…" } },
+  activity: [{ tool: "get_incident", summary: "Read INC-0006 (11 detections)", ok: true }, { tool: "get_incident_timeline", summary: "Timeline of INC-0006: 80 events", ok: true }],
+  artifacts: [], validation: { passed: false, invalid_citations: ["EVT:NB-999"], verified_citations: 3 },
+  ...over,
+});
+
+describe("copilot", () => {
+  it("renders cited objects as links, labels rule-based answers and shows activity", async () => {
+    const calls = mockApi({
       "/api/auth/me": ME, "/api/workspaces/current": WORKSPACE,
-      "/api/ai/status": { mode: "LOCAL", label: "DEMO AI / LOCAL ANALYSIS", detail: "" },
-      "/api/ai/suggestions": { suggestions: ["What happened?"] },
-      "/api/ai/chat": {
-        conversation_id: 1, user_message: { id: 1, role: "user", content: "What happened?" },
-        message: { id: 2, role: "assistant", content: "", mode: "LOCAL", provider: "local", model: "sentinelx-local-analyst",
-          structured: { summary: "INC-0006 summary", evidence: [{ statement: "38 failed logins", event_ids: ["NB-000123"], detection_ids: [5] },
-            { statement: "invented", event_ids: [], detection_ids: [], unverified: true }],
-            inference: ["Single actor"], uncertainty: ["Limited telemetry"], next_steps: ["Reset credentials"], techniques: [{ id: "T1110.001", reason: "" }],
-            notices: ["DEMO AI / LOCAL ANALYSIS: deterministic analysis"], security_notes: ["Possible prompt-injection text found in data"] },
-          sources: [], tool_calls: [{ tool: "get_incident", args: {}, ok: true }], validation: { passed: false, removed_event_ids: ["NB-999"] }, latency_ms: 12, created_at: "" },
-      },
+      "/api/ai/suggestions": { suggestions: ["Investigate the highest-risk incident"] },
+      "/api/ai/chat": { conversation: { id: 1, title: "x", mode: "investigate", focus: { incident: "INC-0006" }, recent_refs: [], investigation_id: null, updated_at: "" },
+        user_message: { id: 1, role: "user", content: "Investigate INC-0006", activity: [], artifacts: [], structured: {} }, message: assistantMsg() },
     });
-    renderApp(<AIChat incidentId={6} />);
-    await userEvent.click(await screen.findByRole("button", { name: "What happened?" }));
-    expect(await screen.findByText("INC-0006 summary")).toBeInTheDocument();
-    expect(screen.getAllByText("DEMO AI / LOCAL ANALYSIS").length).toBeGreaterThan(0);
-    expect(screen.getByText("EVIDENCE")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "NB-000123" })).toHaveAttribute("href", "/events?q=NB-000123");
-    expect(screen.getByText("unverified reference removed")).toBeInTheDocument();
-    expect(screen.getByText(/prompt-injection/)).toBeInTheDocument();
-    expect(screen.getByText("Grounding check: references removed")).toBeInTheDocument();
+    renderApp(<Copilot context={["INC:INC-0006"]} mode="investigate" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Investigate the highest-risk incident" }));
+    expect(await screen.findByRole("link", { name: "NB-000123" })).toHaveAttribute("href", "/events/NB-000123");
+    expect(screen.getByRole("link", { name: "t.nguyen" })).toHaveAttribute("href", "/entities/user/t.nguyen");
+    expect(screen.getByRole("link", { name: "T1110.001" })).toHaveAttribute("href", "/mitre?technique=T1110.001");
+    expect(screen.getByText("Rule-based analysis")).toBeInTheDocument();
+    expect(screen.getByText(/No language model is connected/)).toBeInTheDocument();
+    expect(screen.getByText(/treated as data/)).toBeInTheDocument();
+    expect(screen.getByText("1 unverifiable reference(s) removed")).toBeInTheDocument();
+    expect(screen.getByText("Investigation scorecard")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Investigation activity \(2 steps\)/ }));
+    expect(screen.getByText(/Read INC-0006 \(11 detections\)/)).toBeInTheDocument();
+    const body = JSON.parse(String(calls.find((c) => c.url === "/api/ai/chat")!.init!.body));
+    expect(body).toMatchObject({ mode: "investigate", context: ["INC:INC-0006"] });
+  });
+
+  it("shows a failed model call with its investigation ID and a link to System Health", async () => {
+    mockApi({
+      "/api/auth/me": ME, "/api/workspaces/current": WORKSPACE, "/api/ai/suggestions": { suggestions: [] },
+      "/api/ai/chat": { conversation: { id: 1, title: "x", mode: "ask", focus: {}, recent_refs: [], investigation_id: null, updated_at: "" },
+        user_message: { id: 1, role: "user", content: "hi", activity: [], artifacts: [], structured: {} },
+        message: assistantMsg({ error_ref: "AIX-20260928-ABC123", content: "Open incidents: none.", structured: { mode: "ask", citations: [],
+          notice: { kind: "error", reference: "AIX-20260928-ABC123", reason: "The AI provider timed out.", text: "AI investigation could not be completed. The answer below comes from SentinelX rule-based analysis instead." } } }) },
+    });
+    renderApp(<Copilot />);
+    await userEvent.type(await screen.findByLabelText("Question"), "hi{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("AI investigation could not be completed");
+    expect(screen.getByText("AIX-20260928-ABC123")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Check System Health" })).toHaveAttribute("href", "/health");
+  });
+
+  it("switches modes and loads mode-specific suggestions", async () => {
+    const calls = mockApi({ "/api/auth/me": ME, "/api/workspaces/current": WORKSPACE, "/api/ai/suggestions": { suggestions: ["Find large uploads"] } });
+    renderApp(<Copilot />);
+    await userEvent.click(await screen.findByRole("tab", { name: "Hunt" }));
+    await waitFor(() => expect(calls.some((c) => c.url === "/api/ai/suggestions?mode=hunt")).toBe(true));
+    expect(screen.getByRole("tab", { name: "Hunt" })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("hunt builder", () => {
+  it("generates an editable search and runs it", async () => {
+    const calls = mockApi({
+      "/api/auth/me": ME, "/api/workspaces/current": WORKSPACE, "/api/hunts": [],
+      "/api/hunts/translate": { spec: { behaviors: ["large_transfer"], group_by: "host" }, description: [{ label: "Behavior", value: "10 MB or more transferred in one event" }], method: "rule-based" },
+      "/api/hunts/run": { spec: { group_by: "host" }, description: [{ label: "Behavior", value: "10 MB or more transferred in one event" }], scanned: 900, total: 1, groups: [{ key: "NB-WS-TR07", count: 1 }],
+        entities: { users: [], hosts: [], ips: [] }, sequences: [], time_range: { start: null, end: null }, hunt: "HUNT-0001",
+        events: [{ id: 1, event_uid: "NB-000200", timestamp: "2026-09-25T02:00:00Z", event_type: "network", user: "t.nguyen", host: "NB-WS-TR07", source_ip: null, destination_ip: "185.1.1.1", process: null, command: null, action: "upload", status: "success", severity: "high", bytes: 400000000, resource: null, source: null }] },
+    });
+    renderApp(<Routes><Route path="/hunts" element={<HuntsPage />} /><Route path="/hunts/:ref" element={<HuntsPage />} /></Routes>, "/hunts");
+    await userEvent.type(await screen.findByLabelText("Hunt description"), "Find large uploads");
+    await userEvent.click(screen.getByRole("button", { name: /Generate search/ }));
+    expect((await screen.findAllByText("10 MB or more transferred in one event")).length).toBeGreaterThan(0);
+    expect((screen.getByLabelText(/Specification/) as HTMLTextAreaElement).value).toContain("large_transfer");
+    await userEvent.click(screen.getByRole("button", { name: /Run hunt/ }));
+    await waitFor(() => expect(calls.some((c) => c.url === "/api/hunts/run")).toBe(true));
+    expect(JSON.parse(String(calls.find((c) => c.url === "/api/hunts/run")!.init!.body)).spec.behaviors).toEqual(["large_transfer"]);
   });
 });

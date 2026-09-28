@@ -64,12 +64,18 @@ def run_detection(db: Session, workspace: Workspace, events: list[Ev] | None = N
     rules = db.query(DetectionRule).filter_by(workspace_id=workspace.id, enabled=True).all()
     existing_keys = set(db.scalars(select(Detection.dedupe_key).where(Detection.workspace_id == workspace.id)))
     for rule in rules:
-        impl = RULE_IMPLEMENTATIONS.get(rule.rule_key)
+        if rule.kind == "candidate":
+            continue
+        impl, params = RULE_IMPLEMENTATIONS.get(rule.rule_key), rule.parameters or {}
+        if rule.kind == "custom":
+            from app.analysis.detection_lab import custom_rule
+
+            impl, params = custom_rule, {"spec": (rule.parameters or {}).get("spec"), "rule_key": rule.rule_key}
         if impl is None:
             continue
         result.rules_run += 1
         try:
-            candidates = impl(events, rule.parameters or {}, ctx)
+            candidates = impl(events, params, ctx)
         except Exception as exc:  # a faulty rule must not stop the pipeline
             log.exception("Rule %s failed", rule.rule_key)
             result.errors.append(f"{rule.rule_key}: {type(exc).__name__}")

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bookmark, BookmarkCheck, FileText } from "lucide-react";
 import { api } from "../lib/api";
@@ -9,12 +9,15 @@ import { fmtBytes, fmtDuration, fmtTime, STATUS_LABEL } from "../lib/format";
 import type { EventBrief, IncidentFull, Member, Paged } from "../lib/types";
 import { Card, Empty, ErrorState, KV, Loading, RiskMeter, SeverityBadge, StatusBadge, Tabs, useToast } from "../components/ui";
 import { AttackGraph } from "../components/AttackGraph";
-import { AIChat } from "../components/AIChat";
+import { Copilot } from "../components/Copilot";
+import { DnaTab, TimeMachineTab, WhatIfTab } from "../components/IncidentExtras";
+import { InvestigateButton } from "../components/InvestigateButton";
 import { EventPanel } from "../components/EventPanel";
 
 const TABS = [
   { id: "overview", label: "Overview" }, { id: "timeline", label: "Timeline" }, { id: "evidence", label: "Evidence" },
-  { id: "graph", label: "Attack Graph" }, { id: "mitre", label: "MITRE ATT&CK" }, { id: "ai", label: "AI Investigation" },
+  { id: "graph", label: "Attack Graph" }, { id: "timemachine", label: "Time machine" }, { id: "dna", label: "Attack DNA" },
+  { id: "whatif", label: "What-if" }, { id: "mitre", label: "MITRE ATT&CK" }, { id: "ai", label: "Copilot" },
   { id: "recommendations", label: "Recommendations" }, { id: "case", label: "Case" }, { id: "audit", label: "Audit History" },
 ];
 
@@ -286,7 +289,9 @@ export function IncidentDetailPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const { isAnalyst } = useSession();
-  const [tab, setTab] = useState("overview");
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? "overview";
+  const setTab = (t: string) => setParams(t === "overview" ? {} : { tab: t }, { replace: true });
   const [eventId, setEventId] = useState<number | null>(null);
   const q = useWsQuery<IncidentFull>(["incident", id], `/api/incidents/${id}`);
   const members = useWsQuery<Member[]>(["members"], "/api/members");
@@ -302,7 +307,7 @@ export function IncidentDetailPage() {
   });
   const bookmark = useMutation({ mutationFn: () => api(`/api/incidents/${id}/bookmark`, { method: "POST" }), onSuccess: refresh });
   const report = useMutation({
-    mutationFn: (report_type: string) => api<{ id: number }>("/api/reports", { body: { incident_id: Number(id), report_type } }),
+    mutationFn: (report_type: string) => api<{ id: number }>("/api/reports", { body: { incident_id: q.data!.id, report_type } }),
     onSuccess: (r) => navigate(`/reports/${r.id}`), onError: (e) => toast((e as Error).message, "error"),
   });
 
@@ -337,6 +342,7 @@ export function IncidentDetailPage() {
               <option value="incident">Incident report</option><option value="technical">Technical investigation</option><option value="executive">Executive summary</option>
             </select>
           </>)}
+          <InvestigateButton context={[`INC:${inc.number}`]} q={`Investigate ${inc.number}. What happened, what supports it, what contradicts it, and what don't we know?`} />
           {!isAnalyst && <span className="badge"><FileText size={12} /> Read-only (Viewer)</span>}
         </div>
       </div>
@@ -348,7 +354,10 @@ export function IncidentDetailPage() {
         {tab === "graph" && (graph.isLoading ? <Loading /> : graph.data && (
           <Card title="Attack graph" sub={graph.data.note}><AttackGraph nodes={graph.data.nodes} edges={graph.data.edges} /></Card>))}
         {tab === "mitre" && <Mitre inc={inc} />}
-        {tab === "ai" && <AIChat incidentId={inc.id} />}
+        {tab === "timemachine" && <TimeMachineTab inc={inc} />}
+        {tab === "dna" && <DnaTab inc={inc} />}
+        {tab === "whatif" && <WhatIfTab inc={inc} />}
+        {tab === "ai" && <Copilot context={[`INC:${inc.number}`]} mode="investigate" compact />}
         {tab === "recommendations" && <Recommendations inc={inc} canEdit={isAnalyst} />}
         {tab === "case" && <CaseTab inc={inc} canEdit={isAnalyst} />}
         {tab === "audit" && <AuditTab inc={inc} />}

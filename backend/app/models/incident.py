@@ -37,6 +37,7 @@ class Incident(Base):
     correlation_reason: Mapped[str] = mapped_column(Text, default="")
     correlation_keys: Mapped[dict] = mapped_column(JSONType, default=dict)
     anomaly_summary: Mapped[dict] = mapped_column(JSONType, default=dict)
+    dna: Mapped[dict] = mapped_column(JSONType, default=dict)
     checklist: Mapped[list] = mapped_column(JSONType, default=list)
     tags: Mapped[list] = mapped_column(JSONType, default=list)
     origin: Mapped[str] = mapped_column(String(16), default="correlation")

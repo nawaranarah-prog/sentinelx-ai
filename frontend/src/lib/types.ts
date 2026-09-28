@@ -51,16 +51,32 @@ export interface IncidentFull extends IncidentBrief {
   evidence_event_count: number; context_event_count: number;
 }
 export interface Member { id: number; email: string; full_name: string; role: Role; is_active: boolean; last_login_at: string | null }
-export interface AIStructured {
-  summary: string; evidence: { statement: string; event_ids: string[]; detection_ids: number[]; unverified?: boolean }[];
-  inference: string[]; uncertainty: string[]; next_steps: string[]; techniques: { id: string; reason: string }[];
-  notices: string[]; security_notes: string[];
+export type CopilotMode = "ask" | "investigate" | "hunt" | "explain" | "compare" | "report" | "simulate";
+export interface Citation { type: string; id: string; link: string }
+export interface Scorecard {
+  evidence_reviewed: number; entities_reviewed: number; timeline_coverage: number | null; open_questions: string[];
+  contradicting_evidence: number; missing_telemetry: string[]; confidence: "low" | "medium" | "high"; method: string;
 }
+export interface AINotice { kind: "info" | "error"; text: string; reference?: string; reason?: string }
+export interface AIActivity { tool: string; summary: string; ok: boolean }
 export interface AIMessage {
-  id: number; role: "user" | "assistant"; content: string; structured: AIStructured | Record<string, never>;
-  mode: string; provider: string; model: string; sources: { chunk_id: number; document_title: string; heading: string; score: number }[];
-  tool_calls: { tool: string; args: Record<string, unknown>; ok: boolean }[];
-  validation: { passed?: boolean; removed_event_ids?: string[]; removed_techniques?: string[]; removed_detection_ids?: number[]; unverified_references_in_text?: string[] };
-  latency_ms: number; created_at: string;
+  id: number; role: "user" | "assistant"; content: string; mode: string; provider: string; model: string;
+  structured: { mode?: CopilotMode; citations?: Citation[]; notice?: AINotice | null; security_notes?: string[];
+    scorecard?: Scorecard | null; usage?: Record<string, number>; focus?: Record<string, unknown>; refs?: string[] };
+  activity: AIActivity[]; artifacts: Record<string, any>[];
+  validation: { invalid_citations?: string[]; passed?: boolean; verified_citations?: number } | null;
+  error_ref: string; latency_ms: number | null; created_at: string;
+}
+export interface Conversation {
+  id: number; title: string; mode: CopilotMode; focus: Record<string, string | { kind: string; name: string }>; recent_refs: string[];
+  investigation_id: number | null; updated_at: string;
+}
+export interface GraphNodeT { id: number; kind: string; key: string; label: string; props: Record<string, any>; first_seen: string | null; last_seen: string | null }
+export interface GraphEdgeT { id: number; source: number; target: number; rel: string; count: number; first_seen: string | null; last_seen: string | null; evidence: string[] }
+export interface HuntResult {
+  spec: Record<string, any>; description: { label: string; value: string }[]; scanned: number; total: number;
+  truncated_scan?: boolean; groups: { key: string; count: number }[]; entities: { users: string[]; hosts: string[]; ips: string[] };
+  events: EventBrief[]; sequences: { first: EventBrief; followed_by: EventBrief[]; follow_count: number }[];
+  time_range: { start: string | null; end: string | null }; hunt?: string | null;
 }
 export interface Notification { id: number; kind: string; severity: string; title: string; body: string; link: string; is_read: boolean; created_at: string }

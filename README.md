@@ -2,7 +2,7 @@
 
 **Detect. Investigate. Understand.**
 
-SentinelX AI is a compact, working Security Operations Center (SOC) platform. It ingests security telemetry (CSV / JSON), normalizes it into one event schema, runs a detection engine and a behavioral anomaly model, correlates related detections into incidents mapped to MITRE ATT&CK, and gives analysts an incident workspace with an evidence-grounded AI assistant, case management, reporting and a full audit trail.
+SentinelX AI is a compact, working Security Operations Center (SOC) platform. It ingests security telemetry (CSV / JSON), normalizes it into one event schema, runs a detection engine and a behavioral anomaly model, correlates related detections into incidents mapped to MITRE ATT&CK, and gives analysts an incident workspace with a tool-using investigation copilot, threat hunting, a detection lab, attack simulation, case management, reporting and a full audit trail.
 
 **Live demo:** https://sentinelx-ai-ten.vercel.app (Vercel + Neon PostgreSQL). Create an account, then choose **Open Nova Bank demo** or upload your own CSV/JSON.
 
@@ -21,13 +21,19 @@ It is a portfolio project. It does not try to replace Microsoft Sentinel, Splunk
 | Detection engine | 10 rules: brute force / password spraying, success after failures, suspicious privileged login, privilege escalation, suspicious PowerShell (with Base64 decoding), internal discovery and scanning, suspicious process execution, sensitive file access, data exfiltration, threat-intel match. Every detection carries an explanation built from its evidence, MITRE mappings with reasons, false-positive notes and recommended steps. Thresholds are tunable per workspace |
 | Anomaly detection | Per user and per host daily feature windows scored with a robust statistical baseline (median/MAD against the population and the entity's own history) **and** a scikit-learn `IsolationForest`; explanations show which features deviated |
 | Correlation | Union-find clustering of detections that share a user, host or IP within a time window; merges into open incidents; plain-language correlation reason ("share user 't.nguyen' (11 detections) ... Observed sequence: Brute force → ... → Data exfiltration") |
-| Incidents | NEW / IN_PROGRESS / CONTAINED / RESOLVED / FALSE_POSITIVE, assignment, notes and comments, tags, bookmarks, a generated investigation checklist, status history. Workspace tabs: Overview, Timeline, Evidence, Attack Graph, MITRE ATT&CK, AI Investigation, Recommendations, Case, Audit History |
+| Incidents | NEW / IN_PROGRESS / CONTAINED / RESOLVED / FALSE_POSITIVE, assignment, notes and comments, tags, bookmarks, a generated investigation checklist, status history. Workspace tabs: Overview, Timeline, Evidence, Attack Graph, Time machine, Attack DNA, What-if, MITRE ATT&CK, Copilot, Recommendations, Case, Audit History. Deep links by number (`/incidents/INC-0006`, `/events/<uid>`, `/detections/DET-12`, `/investigations/INV-0001`, `/hunts/HUNT-0001`) |
 | SentinelX Risk Score | Transparent additive 0-100 heuristic with a visible per-factor breakdown (explicitly not an industry standard or a probability). User and host risk scores work the same way |
-| AI assistant | Provider abstraction (Anthropic official SDK, or any OpenAI-compatible endpoint). Without a key it runs in clearly labelled **DEMO AI / LOCAL ANALYSIS** mode. Read-only, workspace-scoped tools; prompt-injection detection; output validation that strips event IDs, detection IDs and techniques not present in the retrieved context |
+| Investigation copilot | A language model plans and calls **45+ SentinelX tools** (events, incidents, entities, baselines, peers, risk history, detections, rule quality, threat intel, MITRE, knowledge graph paths, similar incidents, hunts, investigations, simulations, what-if, counterfactuals, reports, audit log, system health) in a loop, then answers with citation tokens that link to the objects. Every citation is verified against the database; unverifiable ones are removed and counted. Modes: Ask, Investigate, Hunt, Explain, Compare, Report, Simulate. Conversation state resolves follow-ups ("which hosts are affected in it?"). Tool summaries are shown as *Investigation activity*; Investigate mode computes a scorecard (evidence reviewed, timeline coverage, contradictions, missing telemetry). Providers: Vercel AI Gateway (auto-detected via OIDC), Anthropic SDK, or OpenAI-compatible. Without a model, a rule-based planner calls the same tools and every answer says so; a failed model call is reported with an investigation ID (`AIX-…`) and never dumped into answers or reports |
+| Threat hunting | Hunt Builder: plain language → editable structured spec (behaviors such as new source for user, off-hours, rare destination, first-seen process, large external transfer; "followed by" sequences) → run over stored telemetry → save as `HUNT-n`, create an incident, or turn it into a candidate detection |
+| Detection lab | Rule quality (detections, analyst verdicts, regression failures, evasion tests), candidate rules (disabled until an admin activates them after a backtest), backtesting on stored telemetry and a benign baseline, regression suite over all scenario datasets, attack-variation tests |
+| Simulation lab | Seven attack scenarios with tunable attacker parameters, modeled defensive controls (MFA, PowerShell blocking, DLP, Credential Guard, segmentation, group-change approval), detection gap analysis, and injection into the demo workspace through the real pipeline |
+| Investigate an attack | End-to-end workflow: simulate a variation → pipeline detects and correlates → Attack DNA → knowledge graph → copilot investigation → evidence and hypothesis → gap analysis → candidate rule → backtest → replay → regression → report |
+| Knowledge graph & analytics | Persistent graph of users, hosts, IPs, processes, domains, shares, groups, detections, incidents and techniques with evidence event IDs on every relationship; path finder. Attack DNA and attack families, entity baselines, peer groups, risk history, life stories, environment changes, unexplained behavior, pipeline observability and data-quality checks |
+| Investigations | `INV-n` records with facts, hypotheses (supporting/contradicting evidence), open questions and conclusions; earlier conclusions are shown as historical memory, separate from current evidence |
 | RAG | Knowledge base of playbooks and (fictional) Nova Bank policies; admins upload `.md`/`.txt`/`.pdf`; chunking, local embeddings, retrieval with cited sources |
 | Threat intelligence | Indicator search (IP, domain, hash, hostname, username) with sightings in telemetry and related incidents; manual add / CSV-JSON import with automatic retro-hunt. Demo indicators are labelled SYNTHETIC |
 | Search & analytics | Event Explorer (server-side filters, sort, pagination, raw JSON, saved searches), global search and command palette (Ctrl+K), analytics computed from the loaded data |
-| Reporting | Incident, technical and executive reports built from incident data, with an AI summary labelled by mode; export as PDF, printable HTML, Markdown or JSON |
+| Reporting | Incident, technical and executive reports built from incident data (Attack DNA, findings, uncertainty and limitations, analysis method, audit history); a narrative section is added only when a model actually wrote it; export as PDF, printable HTML, Markdown or JSON |
 | Security | Bcrypt password hashing, JWT with server-side revocation, httpOnly SameSite cookie + CSRF header (or Bearer token), RBAC enforced on every API route, tenant isolation, rate limiting, upload limits, security headers/CSP, safe error responses, audit log with secret scrubbing |
 | Operations | Alembic migrations, Docker Compose (PostgreSQL + API + nginx), health checks, GitHub Actions CI (lint, security scans, tests on SQLite and PostgreSQL, build, Playwright E2E) |
 
@@ -44,7 +50,8 @@ FastAPI backend ─────────────────────�
    detection/    rule catalogue + 10 rule implementations + engine
    ml/           statistical baseline + scikit-learn IsolationForest
    correlation/  detection clustering → incidents, MITRE aggregation
-   ai/           providers, read-only toolbox, guard (injection/grounding), local analyst
+   ai/           providers, tool registry, agent loop, rule-based planner, injection guard
+   analysis/     knowledge graph, hunts, detection lab, simulation, Attack DNA, entity analytics, investigations
    rag/          extraction, chunking, embeddings, retrieval
    reporting/    report builder + Markdown/HTML/PDF renderers
    audit/        audit trail with secret scrubbing
@@ -111,8 +118,8 @@ See [.env.example](.env.example). The important ones:
 |---|---|
 | `DATABASE_URL` | SQLAlchemy URL. PostgreSQL in production (`postgresql+psycopg://...`); SQLite only for development |
 | `SECRET_KEY` | JWT signing key. Required (the app refuses the default in production) |
-| `LLM_PROVIDER` | `none` (default, LOCAL analysis), `anthropic`, or `openai` |
-| `LLM_API_KEY` / `LLM_MODEL` / `LLM_BASE_URL` | Live AI configuration. Default models: `claude-opus-5` (Anthropic) / `gpt-4o-mini` (OpenAI-compatible) |
+| `LLM_PROVIDER` | `auto` (default: Vercel AI Gateway when available, else a key's provider), `gateway`, `anthropic`, `openai`, or `none` (rule-based planner only) |
+| `LLM_API_KEY` / `LLM_MODEL` / `LLM_BASE_URL` | Model configuration (server-side only). Defaults: `anthropic/claude-opus-5` (gateway), `claude-opus-5` (Anthropic), `gpt-4o-mini` (OpenAI-compatible). `AI_GATEWAY_API_KEY` or Vercel's OIDC token authenticates the gateway |
 | `CORS_ORIGINS` | Allowed browser origins when the API is not served same-origin |
 | `COOKIE_SECURE` | `true` behind HTTPS |
 | `MAX_UPLOAD_MB`, `MAX_UPLOAD_ROWS`, `RATE_LIMIT_*` | Abuse limits |
@@ -123,7 +130,7 @@ See [.env.example](.env.example). The important ones:
 1. **Register** — you get a private workspace in ANALYST mode where you are ADMIN.
 2. **DEMO MODE** — "Open Nova Bank demo" creates a separate workspace, generates 7 days of synthetic telemetry with seven attack scenarios, and runs the pipeline. Expect roughly 2,200 events, 27 detections and 7 incidents (a live simulation can stream more).
 3. **ANALYST MODE** — Upload Security Data. Sample datasets (normal, brute force, privilege escalation, PowerShell, exfiltration, mixed) and the event schema can be downloaded from the upload page; they are also under [`datasets/`](datasets/).
-4. **Investigate** — open an incident: read the correlation reason and risk breakdown, walk the timeline, open evidence events (normalized + raw JSON), view the attack graph and ATT&CK mappings, ask the assistant ("What happened?", "What happened before privilege escalation?", "Summarize this for a CISO."), assign it, add notes, change status.
+4. **Investigate** — open an incident: read the correlation reason and risk breakdown, walk the timeline, open evidence events (normalized + raw JSON), view the attack graph and ATT&CK mappings, press **Investigate** to hand it to the copilot, replay it in the time machine, compare its Attack DNA, model defenses in What-if, assign it, add notes, change status. The same Investigate button exists on events, detections, users, hosts, indicators and techniques.
 5. **Report** — generate an incident, technical or executive report and export it as PDF/HTML/Markdown.
 6. **Audit** — every login, view, upload, AI query, export and change is in the audit log (admins).
 
@@ -135,7 +142,7 @@ Roles: **ADMIN** (users and roles, rules, knowledge base, configuration, audit l
 cd backend && pytest                    # ~90 tests: normalization, every dataset through the pipeline, correlation,
                                         # ML, auth, RBAC, tenant isolation, ingestion API, incidents, AI grounding and
                                         # prompt injection, RAG, reports, audit, simulation, migrations
-cd frontend && npm test                 # component tests: login, navigation, incidents, upload, AI assistant
+cd frontend && npm test                 # component tests: login, navigation, incidents, upload, copilot, hunt builder
 cd tests/e2e && npx playwright test     # browser E2E: full analyst workflow, demo mode, viewer RBAC, keyboard,
                                         # no horizontal overflow at 375/390/768/1024/1280/1440/1920 px
 ```
@@ -144,7 +151,8 @@ Dataset expectations are asserted, not assumed: the *normal* dataset must produc
 
 ## Limitations (honest list)
 
-- **AI:** without `LLM_API_KEY` the assistant uses deterministic local analysis (keyword intent routing + templated answers built from retrieved data). It is labelled as such everywhere and cannot answer arbitrary free-form questions. The live-provider code path is covered by tests with a fake provider; it was not exercised against a real API key during development.
+- **AI:** without a connected model the copilot runs a rule-based planner (keyword intent routing over the same tools, answers built from the retrieved data). It is labelled on every answer and handles the listed question types, not arbitrary free-form questions. The live tool loop is covered by tests with a scripted fake provider. On Vercel the AI Gateway requires billing to be enabled for the team before it serves requests.
+- **Simulation and what-if** results are modeled: controls are assumed to work as described, and simulated telemetry is synthetic.
 - **Embeddings** are local feature-hashing vectors (lexical, not neural) stored in the relational database, with cosine similarity computed in the application. That is fine for a knowledge base of hundreds of chunks; a pgvector index is the documented upgrade path.
 - **Threat intelligence** has no external provider integration; demo indicators are synthetic and labelled that way.
 - **Rate limiting and the live simulation** keep state in process; a multi-instance deployment needs a shared store (for example Redis) and a job queue.

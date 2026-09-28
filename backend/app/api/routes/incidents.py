@@ -29,8 +29,14 @@ router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 SEV_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
 
 
-def get_incident_or_404(db: Session, ctx: WorkspaceContext, incident_id: int) -> Incident:
-    inc = db.query(Incident).filter_by(id=incident_id, workspace_id=ctx.workspace_id).first()
+def get_incident_or_404(db: Session, ctx: WorkspaceContext, incident_id: int | str) -> Incident:
+    """Accept a numeric id or an incident number (INC-0006) so deep links work either way."""
+    ref = str(incident_id).strip()
+    q = db.query(Incident).filter_by(workspace_id=ctx.workspace_id)
+    if ref.upper().startswith("INC-"):
+        inc = q.filter_by(number=ref.upper()).first()
+    else:
+        inc = q.filter_by(id=int(ref)).first() if ref.isdigit() else None
     if inc is None:
         raise HTTPException(status_code=404, detail="Incident not found")
     return inc
@@ -95,7 +101,7 @@ def compare(ids: str, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get
 
 
 @router.get("/{incident_id}")
-def get_incident(incident_id: int, request: Request, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
+def get_incident(incident_id: str, request: Request, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     dets = db.query(Detection).filter_by(incident_id=inc.id).order_by(Detection.timestamp).all()
     techs = db.query(IncidentTechnique).filter_by(incident_id=inc.id).all()
@@ -126,7 +132,7 @@ def get_incident(incident_id: int, request: Request, ctx: WorkspaceContext = Rea
 
 
 @router.get("/{incident_id}/timeline")
-def timeline(incident_id: int, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db),
+def timeline(incident_id: str, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db),
              include_context: bool = False, page: int = Query(1, ge=1), page_size: int = Query(200, ge=1, le=500)):
     inc = get_incident_or_404(db, ctx, incident_id)
     roles = ["evidence", "context"] if include_context else ["evidence"]
@@ -151,12 +157,12 @@ def timeline(incident_id: int, ctx: WorkspaceContext = ReadCtx, db: Session = De
 
 
 @router.get("/{incident_id}/graph")
-def graph(incident_id: int, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
+def graph(incident_id: str, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
     return build_graph(db, get_incident_or_404(db, ctx, incident_id))
 
 
 @router.get("/{incident_id}/history")
-def case_history(incident_id: int, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
+def case_history(incident_id: str, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     logs = db.query(AuditLog).filter(AuditLog.workspace_id == ctx.workspace_id, AuditLog.target_type == "incident",
                                      AuditLog.target_id == str(inc.id)).order_by(AuditLog.id.desc()).limit(200).all()
@@ -165,7 +171,7 @@ def case_history(incident_id: int, ctx: WorkspaceContext = ReadCtx, db: Session 
 
 
 @router.patch("/{incident_id}")
-def change_status(incident_id: int, body: IncidentStatusIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
+def change_status(incident_id: str, body: IncidentStatusIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
                   db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     if inc.status == body.status:
@@ -184,7 +190,7 @@ def change_status(incident_id: int, body: IncidentStatusIn, request: Request, ct
 
 
 @router.post("/{incident_id}/assign")
-def assign(incident_id: int, body: AssignIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
+def assign(incident_id: str, body: AssignIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
            db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     assignee = None
@@ -213,7 +219,7 @@ def assign(incident_id: int, body: AssignIn, request: Request, ctx: WorkspaceCon
 
 
 @router.post("/{incident_id}/notes", status_code=201)
-def add_note(incident_id: int, body: NoteIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
+def add_note(incident_id: str, body: NoteIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
              db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     note = InvestigationNote(incident_id=inc.id, author_id=ctx.user.id, kind=body.kind, body=body.body.strip())
@@ -227,7 +233,7 @@ def add_note(incident_id: int, body: NoteIn, request: Request, ctx: WorkspaceCon
 
 
 @router.patch("/{incident_id}/checklist")
-def update_checklist(incident_id: int, body: ChecklistIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
+def update_checklist(incident_id: str, body: ChecklistIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
                      db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     items = [dict(c) for c in inc.checklist or []]
@@ -243,7 +249,7 @@ def update_checklist(incident_id: int, body: ChecklistIn, request: Request, ctx:
 
 
 @router.put("/{incident_id}/tags")
-def set_tags(incident_id: int, body: TagsIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
+def set_tags(incident_id: str, body: TagsIn, request: Request, ctx: WorkspaceContext = AnalystCtx,
              db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     inc.tags = body.tags
@@ -255,7 +261,7 @@ def set_tags(incident_id: int, body: TagsIn, request: Request, ctx: WorkspaceCon
 
 
 @router.post("/{incident_id}/bookmark")
-def toggle_bookmark(incident_id: int, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
+def toggle_bookmark(incident_id: str, ctx: WorkspaceContext = ReadCtx, db: Session = Depends(get_db)):
     inc = get_incident_or_404(db, ctx, incident_id)
     b = db.query(Bookmark).filter_by(user_id=ctx.user.id, workspace_id=ctx.workspace_id, target_type="incident",
                                      target_id=inc.id).first()

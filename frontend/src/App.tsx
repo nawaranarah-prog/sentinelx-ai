@@ -22,6 +22,14 @@ const Reports = lazy(() => import("./pages/Reports").then((m) => ({ default: m.R
 const ReportView = lazy(() => import("./pages/Reports").then((m) => ({ default: m.ReportViewPage })));
 const Health = lazy(() => import("./pages/Health").then((m) => ({ default: m.HealthPage })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.SettingsPage })));
+const Hunts = lazy(() => import("./pages/Hunts").then((m) => ({ default: m.HuntsPage })));
+const DetectionLab = lazy(() => import("./pages/DetectionLab").then((m) => ({ default: m.DetectionLabPage })));
+const SimulationLab = lazy(() => import("./pages/SimulationLab").then((m) => ({ default: m.SimulationLabPage })));
+const AttackInvestigation = lazy(() => import("./pages/AttackInvestigation").then((m) => ({ default: m.AttackInvestigationPage })));
+const Investigations = lazy(() => import("./pages/Investigations").then((m) => ({ default: m.InvestigationsPage })));
+const GraphExplorer = lazy(() => import("./pages/GraphExplorer").then((m) => ({ default: m.GraphExplorerPage })));
+const DataQuality = lazy(() => import("./pages/DataQuality").then((m) => ({ default: m.DataQualityPage })));
+const EventDetail = lazy(() => import("./pages/EventDetail").then((m) => ({ default: m.EventDetailPage })));
 const AdminUsers = lazy(() => import("./pages/admin/Users").then((m) => ({ default: m.AdminUsersPage })));
 const AdminRules = lazy(() => import("./pages/admin/Rules").then((m) => ({ default: m.AdminRulesPage })));
 const AdminKnowledge = lazy(() => import("./pages/admin/Knowledge").then((m) => ({ default: m.AdminKnowledgePage })));
@@ -57,6 +65,16 @@ export function App() {
           <Route path="detections" element={<Detections />} />
           <Route path="detections/:id" element={<DetectionDetail />} />
           <Route path="events" element={<Events />} />
+          <Route path="events/:uid" element={<EventDetail />} />
+          <Route path="hunts" element={<Hunts />} />
+          <Route path="hunts/:ref" element={<Hunts />} />
+          <Route path="detection-lab" element={<DetectionLab />} />
+          <Route path="simulation" element={<SimulationLab />} />
+          <Route path="investigate-attack" element={<AttackInvestigation />} />
+          <Route path="investigations" element={<Investigations />} />
+          <Route path="investigations/:ref" element={<Investigations />} />
+          <Route path="graph" element={<GraphExplorer />} />
+          <Route path="data-quality" element={<DataQuality />} />
           <Route path="ingest" element={<Ingest />} />
           <Route path="assistant" element={<Assistant />} />
           <Route path="entities" element={<Entities />} />

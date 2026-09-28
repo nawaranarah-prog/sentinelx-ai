@@ -42,10 +42,10 @@ export function ReportsPage() {
         </Card>)}
       <Card title="Generated reports" flush>
         {reports.isLoading ? <Loading /> : reports.data?.length === 0 ? <Empty title="No reports yet">Generate one from an incident.</Empty> : (
-          <div className="table-wrap"><table className="table responsive"><thead><tr><th>Report</th><th>Type</th><th>AI summary</th><th>Author</th><th>Created (UTC)</th></tr></thead>
+          <div className="table-wrap"><table className="table responsive"><thead><tr><th>Report</th><th>Type</th><th>Narrative</th><th>Author</th><th>Created (UTC)</th></tr></thead>
             <tbody>{reports.data?.map((r) => (<tr key={r.id} className="clickable" onClick={() => navigate(`/reports/${r.id}`)}>
               <td data-label="Report"><Link to={`/reports/${r.id}`} onClick={(e) => e.stopPropagation()}>{r.title}</Link></td><td data-label="Type">{TYPE_LABEL[r.report_type]}</td>
-              <td data-label="AI summary"><span className={`badge ${r.ai_mode === "LIVE" ? "st-ok" : "st-warn"}`}>{r.ai_mode === "LIVE" ? "LIVE AI" : "LOCAL ANALYSIS"}</span></td>
+              <td data-label="Narrative"><span className={`badge ${r.ai_mode === "LIVE" ? "st-ok" : ""}`}>{r.ai_mode === "LIVE" ? "model-written" : "evidence only"}</span></td>
               <td data-label="Author" className="small">{r.created_by}</td><td data-label="Created" className="small nowrap">{fmtTime(r.created_at, false)}</td></tr>))}</tbody></table></div>)}
       </Card>
     </div>
@@ -73,7 +73,7 @@ export function ReportViewPage() {
     <div className="stack">
       <div className="page-head">
         <div><div className="small muted"><Link to="/reports">Reports</Link> / #{r.id}</div><h1 style={{ marginTop: 4 }}>{r.title}</h1>
-          <p>{TYPE_LABEL[r.report_type]} · by {r.created_by} · {fmtTime(r.created_at, false)} UTC · AI summary: {r.ai_mode === "LIVE" ? "LIVE AI" : "DEMO AI / LOCAL ANALYSIS"}</p></div>
+          <p>{TYPE_LABEL[r.report_type]} · by {r.created_by} · {fmtTime(r.created_at, false)} UTC · {r.ai_mode === "LIVE" ? "includes a model-written narrative" : "built from stored evidence"}</p></div>
         <div className="page-actions">
           <button className="btn" onClick={() => frame.current?.contentWindow?.print()}><Printer /> Print</button>
           <button className="btn btn-primary" onClick={() => dl("pdf")}><Download /> PDF</button>

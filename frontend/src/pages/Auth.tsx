@@ -14,7 +14,7 @@ function AuthAside() {
           <li>Ten detection rules with evidence-based explanations</li>
           <li>Isolation Forest + statistical behavioral baselines</li>
           <li>Correlated incidents mapped to MITRE ATT&amp;CK</li>
-          <li>Grounded AI assistant with prompt-injection defenses</li>
+          <li>Investigation copilot that answers from your data and cites its evidence</li>
         </ul>
       </div>
       <p style={{ color: "#7f8ea1", fontSize: 12 }}>Portfolio project. Demo data describes the fictional Nova Bank and is entirely synthetic.</p>

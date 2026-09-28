@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { InvestigateButton } from "../components/InvestigateButton";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, qs } from "../lib/api";
 import { useDebounced, useWsQuery } from "../lib/hooks";
@@ -55,7 +56,8 @@ export function DetectionsPage() {
 }
 
 export function DetectionDetailPage() {
-  const { id } = useParams();
+  const { id: rawId = "" } = useParams();
+  const id = rawId.replace(/^DET-/i, "");
   const navigate = useNavigate();
   const toast = useToast();
   const qc = useQueryClient();
@@ -84,7 +86,8 @@ export function DetectionDetailPage() {
           <div className="row mt-8"><span className="badge">{d.rule_key}</span><SeverityBadge severity={d.severity} /><span className="badge">Confidence {d.confidence.toFixed(2)}</span><span className="badge">{d.stage}</span></div>
         </div>
         <div className="page-actions">
-          {d.incident ? <Link className="btn btn-primary" to={`/incidents/${d.incident.id}`}>Open {d.incident.number}</Link> : isAnalyst && (<>
+          <InvestigateButton context={[`DET:${d.id}`]} mode="explain" label="Explain" q={`Why did detection DET-${d.id} fire? Is it likely a true positive?`} />
+          {d.incident ? <Link className="btn btn-primary" to={`/incidents/${d.incident.number}`}>Open {d.incident.number}</Link> : isAnalyst && (<>
             <button className="btn btn-primary" onClick={() => promote.mutate()} disabled={promote.isPending}>Promote to incident</button>
             <button className="btn" onClick={() => setStatus.mutate(d.status === "DISMISSED" ? "OPEN" : "DISMISSED")}>{d.status === "DISMISSED" ? "Re-open" : "Dismiss"}</button>
           </>)}

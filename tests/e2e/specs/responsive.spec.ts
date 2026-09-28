@@ -12,7 +12,7 @@ test("no horizontal overflow and usable navigation at every target width", async
   await page.getByRole("link", { name: "Incidents", exact: true }).click();
   await page.locator("table tbody tr").first().click();
   const incidentUrl = page.url();
-  const routes = ["/", incidentUrl, "/events", "/assistant", "/ingest", "/analytics", "/threat-intel", "/detections", "/entities", "/admin/audit"];
+  const routes = ["/", incidentUrl, "/events", "/assistant", "/hunts", "/detection-lab", "/simulation", "/investigations", "/graph", "/data-quality", "/ingest", "/analytics", "/threat-intel", "/detections", "/entities", "/admin/audit"];
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width < 800 ? 844 : 900 });
     for (const route of routes) {
@@ -42,9 +42,10 @@ test("no horizontal overflow and usable navigation at every target width", async
   }
   await page.setViewportSize({ width: 375, height: 844 });
   await page.goto(incidentUrl);
-  await page.getByRole("tab", { name: "AI Investigation" }).click();
-  await page.getByRole("button", { name: "Which users are affected?" }).click();
-  await expect(page.getByText("DEMO AI / LOCAL ANALYSIS").first()).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("tab", { name: "Copilot" }).click();
+  await page.getByLabel("Question").fill("Which users are affected?");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Rule-based analysis").first()).toBeVisible({ timeout: 60_000 });
   expect(await noHorizontalOverflow(page)).toBeLessThanOrEqual(1);
   await page.screenshot({ path: "screenshots/ai-375.png", fullPage: true });
   expect(unexpected(errors)).toEqual([]);
@@ -56,7 +57,7 @@ test("keyboard: skip link, tabs with arrow keys, command palette", async ({ page
   await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
   await page.keyboard.press("Control+K");
   await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-  await page.keyboard.type("Open Event");
+  await page.keyboard.type("Event Explorer");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Event Explorer" })).toBeVisible();
 });

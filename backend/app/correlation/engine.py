@@ -7,6 +7,7 @@ from datetime import timedelta
 from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.orm import Session
 
+from app.analysis.dna import compute_dna
 from app.database.session import utcnow
 from app.detection.base import SEVERITY_RANK, fmt_duration, fmt_ts, join_limited, max_severity
 from app.ingestion.normalizer import is_external_ip
@@ -246,6 +247,8 @@ def rebuild_incident(db: Session, incident: Incident, workspace: Workspace) -> N
         Host.workspace_id == incident.workspace_id, Host.hostname.in_(hosts[:50] or [""]))}
     score, band_, factors = compute_incident_risk(dets, list(agg), users, hosts, len(ev_ids), anomalies, host_crit)
     incident.risk_score, incident.risk_band, incident.risk_factors = score, band_, factors
+    bh = (workspace.settings or {}).get("business_hours") or [7, 20]
+    incident.dna = compute_dna(incident, dets, list(agg), (int(bh[0]), int(bh[1])))
 
     old = {c["item"]: c["done"] for c in (incident.checklist or [])}
     incident.checklist = [{"item": c["item"], "done": old.get(c["item"], False)}

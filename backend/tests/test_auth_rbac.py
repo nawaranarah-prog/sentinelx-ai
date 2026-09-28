@@ -61,7 +61,8 @@ def test_tenant_isolation(client, demo):
     assert outsider.get("/api/events", ws=demo.workspace_id).status_code == 404
     assert outsider.get("/api/incidents", ws=demo.workspace_id).status_code == 404
     # Object ids from another tenant are invisible inside the outsider's own workspace.
-    inc_id = demo.get("/api/incidents").json()["items"][0]["id"]
+    first_inc = demo.get("/api/incidents").json()["items"][0]
+    inc_id, inc_number = first_inc["id"], first_inc["number"]
     ev_id = demo.get("/api/events?page_size=1").json()["items"][0]["id"]
     det_id = demo.get("/api/detections?page_size=1").json()["items"][0]["id"]
     assert outsider.get(f"/api/incidents/{inc_id}").status_code == 404
@@ -69,7 +70,7 @@ def test_tenant_isolation(client, demo):
     assert outsider.get(f"/api/detections/{det_id}").status_code == 404
     assert outsider.get(f"/api/incidents/{inc_id}/timeline").status_code == 404
     assert outsider.get(f"/api/events?incident_id={inc_id}").json()["total"] == 0
-    assert outsider.post("/api/ai/chat", json={"message": "What happened?", "incident_id": inc_id}).status_code == 404
+    assert outsider.post("/api/ai/chat", json={"message": "What happened?", "context": [f"INC:{inc_number}"]}).status_code == 404
     assert outsider.post("/api/reports", json={"incident_id": inc_id}).status_code == 404
     assert outsider.get("/api/events").json()["total"] == 0
 

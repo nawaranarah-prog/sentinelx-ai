@@ -45,9 +45,9 @@ export function IncidentsPage() {
                   <thead><tr><th>Incident</th><th>Severity</th><th>Risk</th><th>Status</th><th>Stages</th><th className="num">Detections</th><th>Owner</th><th>Last seen (UTC)</th></tr></thead>
                   <tbody>
                     {data.data!.items.map((i) => (
-                      <tr key={i.id} className="clickable" onClick={() => navigate(`/incidents/${i.id}`)}>
+                      <tr key={i.id} className="clickable" onClick={() => navigate(`/incidents/${i.number}`)}>
                         <td data-label="Incident" className="wrap-anywhere">
-                          <Link to={`/incidents/${i.id}`} onClick={(e) => e.stopPropagation()}><strong>{i.number}</strong></Link>{i.bookmarked && <Bookmark size={12} aria-label="Bookmarked" style={{ marginLeft: 4 }} />}
+                          <Link to={`/incidents/${i.number}`} onClick={(e) => e.stopPropagation()}><strong>{i.number}</strong></Link>{i.bookmarked && <Bookmark size={12} aria-label="Bookmarked" style={{ marginLeft: 4 }} />}
                           <div className="text-2">{i.title}</div>
                         </td>
                         <td data-label="Severity"><SeverityBadge severity={i.severity} /></td>

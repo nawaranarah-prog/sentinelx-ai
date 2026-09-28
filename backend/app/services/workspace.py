@@ -113,8 +113,10 @@ def load_demo_data(db: Session, workspace: Workspace, days: int = 7, seed: int =
 
 def reset_workspace_data(db: Session, workspace_id: int) -> None:
     """Remove telemetry and derived analysis (keeps members, rules, knowledge base and settings)."""
-    for model in (Report, AIConversation, Incident, Detection, AnomalyResult, Event, IngestionJob, Host, Asset,
-                  Notification):
+    from app.models import GraphEdge, GraphNode, Investigation, SimulationRun
+
+    for model in (GraphEdge, GraphNode, SimulationRun, Report, AIConversation, Investigation, Incident, Detection,
+                  AnomalyResult, Event, IngestionJob, Host, Asset, Notification):
         db.execute(delete(model).where(model.workspace_id == workspace_id))
     ws = db.get(Workspace, workspace_id)
     ws.incident_seq = 0

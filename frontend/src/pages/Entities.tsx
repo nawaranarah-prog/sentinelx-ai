@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWsQuery } from "../lib/hooks";
 import { fmtNum, fmtTime } from "../lib/format";
 import type { DetectionBrief, EventBrief, IncidentBrief, RiskFactor } from "../lib/types";
+import { EntityBehavior } from "../components/EntityBehavior";
+import { InvestigateButton } from "../components/InvestigateButton";
 import { Card, Empty, ErrorState, KV, Loading, RiskMeter, SeverityBadge, StatusBadge, Tabs } from "../components/ui";
 
 interface EntityRisk {
@@ -52,7 +54,10 @@ export function EntityProfilePage() {
       <div className="page-head">
         <div><div className="small muted"><Link to="/entities">Users & Hosts</Link> / {kind}</div><h1 className="mono" style={{ marginTop: 4 }}>{e.name}</h1>
           <p>{fmtNum(e.event_count)} events · first seen {fmtTime(e.first_seen, false)} · last seen {fmtTime(e.last_seen, false)} UTC</p></div>
-        <div className="page-actions"><Link className="btn" to={`/events?${kind}=${encodeURIComponent(e.name)}`}>View events</Link></div>
+        <div className="page-actions">
+          <InvestigateButton context={[`${kind === "user" ? "USER" : "HOST"}:${e.name}`]} q={kind === "user" ? `Is ${e.name} compromised? Compare their recent activity with their baseline and peers.` : `Is host ${e.name} compromised? What unusual activity happened on it?`} />
+          <Link className="btn" to={`/graph?q=${encodeURIComponent(e.name)}`}>Graph</Link>
+          <Link className="btn" to={`/events?${kind}=${encodeURIComponent(e.name)}`}>View events</Link></div>
       </div>
       <div className="grid grid-main-side">
         <Card title={`SentinelX ${kind === "user" ? "User" : "Host"} Risk: ${e.risk_score}/100 (${e.risk_band})`} sub="Why this score — every factor is computed from observed activity">
@@ -65,6 +70,7 @@ export function EntityProfilePage() {
             ["Source IPs", e.source_ips.slice(0, 10).join(", ")], ["Criticality", e.criticality ?? (kind === "host" ? "—" : "n/a")]]} />
         </Card>
       </div>
+      <EntityBehavior kind={kind!} name={e.name} />
       <Card title="Behavioral anomaly analysis" sub={e.model_info ? `${e.model_info.model} · ${e.model_info.population_windows} entity-day windows in population · ${e.model_info.decision_rule ?? e.model_info.reason ?? ""}` : "Not analysed"} flush>
         {e.anomalies.length === 0 ? <Empty title="No behavior windows" /> : (
           <div className="table-wrap"><table className="table responsive">
@@ -79,7 +85,7 @@ export function EntityProfilePage() {
       <div className="grid grid-2">
         <Card title="Incidents" flush>{e.incidents.length === 0 ? <Empty title="None" /> : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>{e.incidents.map((i: IncidentBrief) => (
-            <li key={i.id} style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)" }}><Link to={`/incidents/${i.id}`}><strong>{i.number}</strong> {i.title}</Link> <SeverityBadge severity={i.severity} /> <StatusBadge status={i.status} /></li>))}</ul>)}</Card>
+            <li key={i.id} style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)" }}><Link to={`/incidents/${i.number}`}><strong>{i.number}</strong> {i.title}</Link> <SeverityBadge severity={i.severity} /> <StatusBadge status={i.status} /></li>))}</ul>)}</Card>
         <Card title="Detections" flush>{e.detections.length === 0 ? <Empty title="None" /> : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>{e.detections.slice(0, 20).map((d: DetectionBrief) => (
             <li key={d.id} style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)" }}><Link to={`/detections/${d.id}`}>{d.title}</Link> <SeverityBadge severity={d.severity} /><div className="small muted">{fmtTime(d.timestamp)}</div></li>))}</ul>)}</Card>

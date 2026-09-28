@@ -22,8 +22,10 @@ from app.models.other import (
     SavedSearch,
     ThreatIndicator,
 )
+from app.models.platform import AIError, GraphEdge, GraphNode, Hunt, Investigation, InvestigationItem, SimulationRun
 
 __all__ = [
+    "AIError", "GraphEdge", "GraphNode", "Hunt", "Investigation", "InvestigationItem", "SimulationRun",
     "AIConversation", "AIMessage", "AnomalyResult", "Asset", "AuditLog", "Bookmark", "CaseAssignment",
     "Detection", "DetectionEvent", "DetectionRule", "Event", "Host", "Incident", "IncidentEvent",
     "IncidentStatusHistory", "IncidentTechnique", "IngestionJob", "InvestigationNote", "KnowledgeChunk",

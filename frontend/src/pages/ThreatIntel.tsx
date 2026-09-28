@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { InvestigateButton } from "../components/InvestigateButton";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, Upload } from "lucide-react";
@@ -66,13 +67,14 @@ export function ThreatIntelPage() {
               </div>))}
             <h3 className="mt-16 mb-8">Sightings in telemetry</h3>
             <p className="small">{r.sightings.event_count} event(s){r.sightings.first_observed && ` between ${fmtTime(r.sightings.first_observed, false)} and ${fmtTime(r.sightings.last_observed, false)} UTC`}. <Link to={`/events?q=${encodeURIComponent(r.value)}`}>Open in Event Explorer</Link></p>
+            <div className="row mb-8"><InvestigateButton small context={r.detected_type === "ip" && r.sightings.event_count ? [`IP:${r.value}`] : []} q={`Where has ${r.value} appeared in our environment, which entities touched it, and is it malicious?`} /></div>
             <div className="table-wrap"><table className="table responsive"><thead><tr><th>Time (UTC)</th><th>Type</th><th>User / Host</th><th>Src → Dst</th></tr></thead>
               <tbody>{r.sightings.events.map((e: EventBrief) => (<tr key={e.id}><td data-label="Time" className="small nowrap mono">{fmtTime(e.timestamp)}</td><td data-label="Type">{e.event_type} <span className="muted small">{e.action}</span></td>
                 <td data-label="User / Host" className="small">{e.user} {e.host}</td><td data-label="Src → Dst" className="mono small">{e.source_ip ?? "—"} → {e.destination_ip ?? "—"}</td></tr>))}</tbody></table></div>
           </Card>
           <Card title="Related incidents">
             {r.sightings.incidents.length === 0 ? <p className="muted">None.</p> : r.sightings.incidents.map((i: IncidentBrief) => (
-              <div key={i.id} className="mb-8"><Link to={`/incidents/${i.id}`}><strong>{i.number}</strong> {i.title}</Link> <SeverityBadge severity={i.severity} /></div>))}
+              <div key={i.id} className="mb-8"><Link to={`/incidents/${i.number}`}><strong>{i.number}</strong> {i.title}</Link> <SeverityBadge severity={i.severity} /></div>))}
             {r.partial_matches.length > 0 && (<><h3 className="mt-16 mb-8">Partial matches</h3>{r.partial_matches.map((i: Indicator) => <div key={i.id} className="small mono">{i.value} <SourceLabel i={i} /></div>)}</>)}
           </Card>
         </div>

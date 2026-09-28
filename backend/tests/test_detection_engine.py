@@ -28,7 +28,7 @@ def _run(db, name: str, with_intel: bool = False):
 
 def test_normal_dataset_produces_no_detections(db):
     ws, stats, rules = _run(db, "normal")
-    assert stats["accepted"] > 300
+    assert stats["accepted"] > 150  # varies with how many weekend days fall in the 3-day window
     assert rules == set(), f"false positives on normal data: {rules}"
     assert db.query(Incident).filter_by(workspace_id=ws.id).count() == 0
 
